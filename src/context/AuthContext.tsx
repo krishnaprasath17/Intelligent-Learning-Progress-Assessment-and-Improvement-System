@@ -32,7 +32,10 @@ interface AuthContextType {
   login: (email: string, rolePreference?: 'student' | 'admin') => Promise<UserProfile | null>;
   register: (data: Partial<UserProfile>) => Promise<UserProfile | null>;
   logout: () => Promise<void>;
-  checkAccessStatus: (specificEmail?: string) => Promise<boolean>;
+  checkAccessStatus: (specificEmail?: string) => Promise<{
+    approved: boolean;
+    role: 'admin' | 'user';
+  }>;
   switchUser: (userId: string) => Promise<void>;
   submitSurvey: (surveyData: {
     experienceLevel: string;
@@ -81,29 +84,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     email: null,
   });
 
-  const checkAccessStatus = async (specificEmail?: string): Promise<boolean> => {
+  const checkAccessStatus = async (specificEmail?: string): Promise<{
+    approved: boolean;
+    role: 'admin' | 'user';
+  }> => {
     try {
       const targetEmail = specificEmail || user?.email || firebaseUser?.email || accessStatus.email;
       const data = await api.checkAccess(targetEmail || undefined);
+      const status = {
+        approved: Boolean(data.approved),
+        role: data.approved && data.role === 'admin' ? 'admin' as const : 'user' as const,
+      };
 
       setAccessStatus({
         checked: true,
-        approved: Boolean(data.approved),
-        role: data.role === 'admin' ? 'admin' : 'user',
+        ...status,
         email: data.email || targetEmail || null,
         message: data.message,
       });
 
-      // If user profile has mismatched admin status, sync role locally
-      if (data.role === 'admin' && user && user.role !== 'admin') {
-        setUser((prev) => (prev ? { ...prev, role: 'admin' } : null));
+      if (status.approved && status.role === 'admin') {
+        setUser((prev) => (prev && prev.role !== 'admin' ? { ...prev, role: 'admin' } : prev));
       }
 
-      return Boolean(data.approved);
+      return status;
     } catch (e) {
       console.warn('Could not verify server access status:', e);
     }
-    return false;
+    return { approved: false, role: 'user' };
   };
 
   // Sync token and user to localStorage
@@ -146,42 +154,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               lastLoginAt: new Date().toISOString(),
             });
             await setDoc(userDocRef, { lastLoginAt: new Date().toISOString() }, { merge: true });
-            return;
+          } else {
+            const newProfile: UserProfile = {
+              id: fbUser.uid,
+              firebaseUid: fbUser.uid,
+              authProvider: 'google',
+              name: fbUser.displayName || 'Google Learner',
+              email: fbUser.email || 'user@unknown.com',
+              avatar: fbUser.photoURL || undefined,
+              college: '',
+              educationLevel: '',
+              department: '',
+              yearOfStudy: '',
+              experienceLevel: '' as any,
+              targetJobRole: '',
+              preferredLearningStyle: '',
+              dailyAvailableTime: '',
+              careerGoal: '',
+              skillConfidence: {},
+              onboardingCompleted: false,
+              xp: 0,
+              streakDays: 0,
+              lastActiveDate: new Date().toISOString().split('T')[0],
+              lastLoginAt: new Date().toISOString(),
+              role: 'student',
+              createdAt: new Date().toISOString(),
+            };
+
+            await setDoc(userDocRef, {
+              ...newProfile,
+              createdAt: serverTimestamp(),
+              lastLoginAt: serverTimestamp(),
+            });
+            setUser(newProfile);
           }
 
-          const newProfile: UserProfile = {
-            id: fbUser.uid,
-            firebaseUid: fbUser.uid,
-            authProvider: 'google',
-            name: fbUser.displayName || 'Google Learner',
-            email: fbUser.email || 'user@unknown.com',
-            avatar: fbUser.photoURL || undefined,
-            college: '',
-            educationLevel: '',
-            department: '',
-            yearOfStudy: '',
-            experienceLevel: '' as any,
-            targetJobRole: '',
-            preferredLearningStyle: '',
-            dailyAvailableTime: '',
-            careerGoal: '',
-            skillConfidence: {},
-            onboardingCompleted: false,
-            xp: 0,
-            streakDays: 0,
-            lastActiveDate: new Date().toISOString().split('T')[0],
-            lastLoginAt: new Date().toISOString(),
-            role: 'student',
-            createdAt: new Date().toISOString(),
-          };
-
-          await setDoc(userDocRef, {
-            ...newProfile,
-            createdAt: serverTimestamp(),
-            lastLoginAt: serverTimestamp(),
-          });
-          setUser(newProfile);
-          // Check access status via authoritative backend
           if (fbUser.email) {
             await checkAccessStatus(fbUser.email);
           }
@@ -225,7 +232,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setFirebaseUser(fbUser);
 
       // Verify access status and role from authoritative backend
-      const isApproved = await checkAccessStatus(fbUser.email || undefined);
+      const access = await checkAccessStatus(fbUser.email || undefined);
+      const isApproved = access.approved;
 
       const userDocRef = doc(db, 'users', fbUser.uid);
       const docSnap = await getDoc(userDocRef);
@@ -241,7 +249,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: profileData.email || fbUser.email || '',
           avatar: profileData.avatar || fbUser.photoURL || undefined,
           authProvider: 'google',
-          role: accessStatus.role === 'admin' ? 'admin' : (profileData.role === 'admin' && isApproved ? 'admin' : 'student'),
+          role: isApproved && access.role === 'admin' ? 'admin' : 'student',
           lastLoginAt: new Date().toISOString(),
         };
         await setDoc(userDocRef, { ...profileData, lastLoginAt: new Date().toISOString() }, { merge: true });
@@ -268,7 +276,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           streakDays: 0,
           lastActiveDate: new Date().toISOString().split('T')[0],
           lastLoginAt: new Date().toISOString(),
-          role: accessStatus.role === 'admin' ? 'admin' : 'student',
+          role: isApproved && access.role === 'admin' ? 'admin' : 'student',
           createdAt: new Date().toISOString(),
         };
         await setDoc(userDocRef, { ...profileData, createdAt: new Date().toISOString() });

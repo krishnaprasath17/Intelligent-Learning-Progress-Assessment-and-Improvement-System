@@ -418,6 +418,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user, isAuthLoaded]);
 
+  useEffect(() => {
+    if (isAuthLoaded && user?.role === 'admin') {
+      setCurrentView((current) =>
+        current === 'dashboard' || current === 'survey' || current === 'landing'
+          ? 'admin'
+          : current
+      );
+    }
+  }, [isAuthLoaded, user?.role]);
+
   return (
     <DataContext.Provider
       value={{

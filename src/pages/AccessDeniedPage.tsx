@@ -18,11 +18,11 @@ export const AccessDeniedPage: React.FC = () => {
 
     const checkRealtime = async () => {
       try {
-        const approved = await checkAccessStatus(displayEmail);
-        if (approved && isSubscribed) {
+        const access = await checkAccessStatus(displayEmail);
+        if (access.approved && isSubscribed) {
           setNotice('Access granted by administrator in real-time! Redirecting to platform...');
           setTimeout(() => {
-            if (accessStatus.role === 'admin' || user?.role === 'admin') {
+            if (access.role === 'admin' || user?.role === 'admin') {
               setCurrentView('admin');
             } else {
               setCurrentView('dashboard');
@@ -48,11 +48,11 @@ export const AccessDeniedPage: React.FC = () => {
     setIsChecking(true);
     setNotice(null);
     try {
-      const approved = await checkAccessStatus(displayEmail);
-      if (approved) {
+      const access = await checkAccessStatus(displayEmail);
+      if (access.approved) {
         setNotice('Access approved! Redirecting to platform...');
         setTimeout(() => {
-          if (accessStatus.role === 'admin' || user?.role === 'admin') {
+          if (access.role === 'admin' || user?.role === 'admin') {
             setCurrentView('admin');
           } else {
             setCurrentView('dashboard');

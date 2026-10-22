@@ -72,13 +72,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode: initialMode = 'login' 
       const userProfile = await loginWithGoogle(role);
       if (userProfile) {
         // Enforce backend access approval check
-        const isApproved = await checkAccessStatus(userProfile.email);
-        if (!isApproved) {
+        const access = await checkAccessStatus(userProfile.email);
+        if (!access.approved) {
           setCurrentView('access-denied');
           return;
         }
 
-        if (userProfile.role === 'admin') {
+        if (access.role === 'admin' || userProfile.role === 'admin') {
           setCurrentView('admin');
         } else {
           setCurrentView('dashboard');
