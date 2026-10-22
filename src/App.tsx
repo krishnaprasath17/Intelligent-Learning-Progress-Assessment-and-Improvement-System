@@ -74,7 +74,7 @@ function AppContent() {
   }
 
   // If user is authenticated & approved, but on survey/onboarding
-  if (user && (!user.onboardingCompleted || currentView === 'survey' || currentView === 'onboarding')) {
+  if (user && user.role !== 'admin' && (!user.onboardingCompleted || currentView === 'survey' || currentView === 'onboarding')) {
     return <OnboardingSurvey />;
   }
 

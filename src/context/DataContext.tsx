@@ -93,7 +93,9 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoaded: isAuthLoaded, syncUser, rewardXp } = useAuth();
   const [currentView, setCurrentView] = useState<AppView>(() => {
-    return user ? (user.onboardingCompleted ? 'dashboard' : 'survey') : 'landing';
+    if (!user) return 'landing';
+    if (user.role === 'admin') return 'admin';
+    return user.onboardingCompleted ? 'dashboard' : 'survey';
   });
 
   const [selectedSkillId, setSelectedSkillId] = useState<string>('python');
