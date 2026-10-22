@@ -1,0 +1,86 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with skills, learning progress and stats",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "experienceLevel": { "type": "string" },
+        "careerGoal": { "type": "string" },
+        "targetJobRole": { "type": "string" },
+        "totalXp": { "type": "number" },
+        "streakDays": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "email"]
+    },
+    "AssessmentAttempt": {
+      "title": "AssessmentAttempt",
+      "description": "Diagnostic assessment attempt records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "skillId": { "type": "string" },
+        "skillName": { "type": "string" },
+        "score": { "type": "number" },
+        "accuracy": { "type": "number" },
+        "totalQuestions": { "type": "number" },
+        "correctCount": { "type": "number" },
+        "incorrectCount": { "type": "number" },
+        "durationSeconds": { "type": "number" },
+        "skillLevel": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "score"]
+    },
+    "AIInsight": {
+      "title": "AIInsight",
+      "description": "AI analysis of gaps and strengths",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "assessmentId": { "type": "string" },
+        "userId": { "type": "string" },
+        "classifiedLevel": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "assessmentId"]
+    },
+    "AccessControl": {
+      "title": "AccessControl",
+      "description": "Administrator managed email whitelist access control records",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "approved": { "type": "boolean" },
+        "role": { "type": "string" },
+        "approvedAt": { "type": "string" },
+        "approvedBy": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["email", "approved", "role"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "UserProfile",
+      "description": "User documents keyed by user UID"
+    },
+    "assessments": {
+      "schema": "AssessmentAttempt",
+      "description": "Assessment records for users"
+    },
+    "insights": {
+      "schema": "AIInsight",
+      "description": "AI evaluation and gap analysis insights"
+    },
+    "accessControl": {
+      "schema": "AccessControl",
+      "description": "Admin approved email whitelist documents keyed by normalized email"
+    }
+  }
+}

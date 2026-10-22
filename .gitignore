@@ -1,0 +1,17 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+data/application-data.json
+data/access-control.json
+.service-account.json
+service-account.json
+.vercel
+.aistudio/
+/api/index.js
+/server.js
+

@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny all
+    match /{document=**} {
+       allow read, write: if false;
+    }
+
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /assessments/{assessmentId} {
+      allow read, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /insights/{insightId} {
+      allow read, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /roadmaps/{roadmapId} {
+      allow read, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /achievements/{achievementId} {
+      allow read, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /test/{docId} {
+      allow read: if true;
+    }
+
+    // Access Control whitelist collection: accessControl/{normalizedEmail}
+    match /accessControl/{email} {
+      // Any authenticated user can read their own access document to verify approval status
+      allow read: if request.auth != null && (
+        request.auth.token.email.lower() == email ||
+        get(/databases/$(database)/documents/accessControl/$(request.auth.token.email.lower())).data.role == 'admin'
+      );
+      // Only authenticated admin users can create, update, or delete access control whitelist entries
+      allow write: if request.auth != null && (
+        get(/databases/$(database)/documents/accessControl/$(request.auth.token.email.lower())).data.role == 'admin' ||
+        request.auth.token.email.lower() == 'krishnaprasathm.ad23@bitsathy.ac.in'
+      );
+    }
+
+    // Assessment attempts
+    match /attempts/{attemptId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        get(/databases/$(database)/documents/accessControl/$(request.auth.token.email.lower())).data.role == 'admin'
+      );
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        get(/databases/$(database)/documents/accessControl/$(request.auth.token.email.lower())).data.role == 'admin'
+      );
+    }
+
+    // Assessment Configurations (tests catalog)
+    match /assessment_configs/{configId} {
+      allow read: if true;
+      allow write: if request.auth != null && (
+        get(/databases/$(database)/documents/accessControl/$(request.auth.token.email.lower())).data.role == 'admin' ||
+        request.auth.token.email.lower() == 'krishnaprasathm.ad23@bitsathy.ac.in'
+      );
+    }
+
+    // User Notifications
+    match /notifications/{notifId} {
+      allow read, update: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null;
+    }
+
+    // Admin Audit Logs
+    match /audit_logs/{logId} {
+      allow read: if request.auth != null && (
+        get(/databases/$(database)/documents/accessControl/$(request.auth.token.email.lower())).data.role == 'admin' ||
+        request.auth.token.email.lower() == 'krishnaprasathm.ad23@bitsathy.ac.in'
+      );
+      allow create: if request.auth != null;
+    }
+  }
+}
