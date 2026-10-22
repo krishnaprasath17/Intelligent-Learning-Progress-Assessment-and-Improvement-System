@@ -251,6 +251,31 @@ export const api = {
   },
 
   // Admin
+  async getDatabaseStatus(): Promise<{
+    status: 'ok' | 'degraded';
+    storage: {
+      isServerless: boolean;
+      isPersistent: boolean;
+      isFirestoreActive: boolean;
+      pendingFirestoreWrites: number;
+      lastFirestoreWriteError: string | null;
+      firestoreLoadErrors: string[];
+    };
+    firestore: {
+      isAvailable: boolean;
+      hasAdminCredentials: boolean;
+      projectId: string;
+      firestoreDatabaseId: string;
+    };
+    persistenceHealth: {
+      isPersistent: boolean;
+      mode: string;
+      recommendation: string;
+    };
+  }> {
+    return fetchJSON('/api/system/db-status');
+  },
+
   async getAdminStats(): Promise<any> {
     return fetchJSON('/api/admin/stats');
   },

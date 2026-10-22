@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { apiRouter } from './apiRouter';
+import { db } from './db';
 
 const app = express();
 app.use(express.json());
@@ -20,13 +21,26 @@ app.use((req: Request, _res: Response, next) => {
   next();
 });
 
+app.use((_req: Request, res: Response, next) => {
+  const send = res.send.bind(res);
+  res.send = ((body?: any) => {
+    void db.flushPendingWrites()
+      .then(() => send(body))
+      .catch(next);
+    return res;
+  }) as Response['send'];
+  next();
+});
+
 // Health check endpoints
 app.get(['/health', '/healthz', '/api/health', '/api/healthz'], (_req: Request, res: Response) => {
+  const storage = db.getStorageDiagnostic();
   res.status(200).json({
-    status: 'ok',
+    status: storage.isServerless && !storage.isPersistent ? 'degraded' : 'ok',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     environment: 'vercel-serverless',
+    storage,
   });
 });
 

@@ -64,6 +64,10 @@ class InMemoryDB {
   notifications: Map<string, AppNotification[]> = new Map(); // userId -> list
   auditLogs: AdminAuditLog[] = [];
   xpTransactions: Set<string> = new Set();
+  private pendingFirestoreWrites = new Set<Promise<void>>();
+  private firestoreWriteErrors: Error[] = [];
+  private lastFirestoreWriteError: string | null = null;
+  private firestoreLoadErrors: string[] = [];
 
   constructor() {
     this.seed();
@@ -135,27 +139,58 @@ class InMemoryDB {
     }
   }
 
-  private async persistToFirestore(collection: string, id: string, value: unknown) {
+  private persistToFirestore(collection: string, id: string, value: unknown) {
     if (!firestore) return;
-    try {
-      await firestore.collection(collection).doc(id).set(value, { merge: true });
-    } catch (err) {
-      console.warn(`Firestore save to ${collection}/${id} skipped:`, err);
+    const write = firestore.collection(collection).doc(id).set(value, { merge: true })
+      .then(() => undefined)
+      .catch((err: unknown) => {
+        const error = err instanceof Error ? err : new Error(String(err));
+        console.error(`Firestore save to ${collection}/${id} failed:`, error);
+        this.firestoreWriteErrors.push(error);
+        this.lastFirestoreWriteError = error.message;
+      });
+
+    this.pendingFirestoreWrites.add(write);
+    void write.then(() => this.pendingFirestoreWrites.delete(write));
+  }
+
+  public async flushPendingWrites(): Promise<void> {
+    while (this.pendingFirestoreWrites.size > 0) {
+      await Promise.all(Array.from(this.pendingFirestoreWrites));
     }
+
+    if (this.firestoreWriteErrors.length > 0) {
+      const errors = this.firestoreWriteErrors.splice(0);
+      throw new Error(`Failed to persist ${errors.length} database write(s) to Cloud Firestore.`);
+    }
+    this.lastFirestoreWriteError = null;
   }
 
   private async loadFromFirestore() {
     if (!firestore) return;
+    const loadCollection = async (name: string) => {
+      try {
+        const collection = firestore!.collection(name);
+        return await (name === 'audit_logs' ? collection.limit(200) : collection).get();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.firestoreLoadErrors.push(`${name}: ${message}`);
+        console.error(`Firestore load from ${name} failed:`, error);
+        return null;
+      }
+    };
+
     try {
-      const [users, assessments, insights, roadmaps, attempts, configs, notifs, auditLogs] = await Promise.all([
-        firestore.collection('users').get().catch(() => null),
-        firestore.collection('assessments').get().catch(() => null),
-        firestore.collection('insights').get().catch(() => null),
-        firestore.collection('roadmaps').get().catch(() => null),
-        firestore.collection('attempts').get().catch(() => null),
-        firestore.collection('assessment_configs').get().catch(() => null),
-        firestore.collection('notifications').get().catch(() => null),
-        firestore.collection('audit_logs').limit(200).get().catch(() => null),
+      const [users, assessments, insights, roadmaps, attempts, configs, questions, notifs, auditLogs] = await Promise.all([
+        loadCollection('users'),
+        loadCollection('assessments'),
+        loadCollection('insights'),
+        loadCollection('roadmaps'),
+        loadCollection('attempts'),
+        loadCollection('assessment_configs'),
+        loadCollection('questions'),
+        loadCollection('notifications'),
+        loadCollection('audit_logs'),
       ]);
       if (users) users.forEach(snapshot => this.users.set(snapshot.id, snapshot.data() as UserProfile));
       if (assessments) assessments.forEach(snapshot => this.assessments.set(snapshot.id, snapshot.data() as AssessmentResult));
@@ -163,6 +198,7 @@ class InMemoryDB {
       if (roadmaps) roadmaps.forEach(snapshot => this.roadmaps.set(snapshot.id, snapshot.data() as LearningRoadmap));
       if (attempts) attempts.forEach(snapshot => this.assessmentAttempts.set(snapshot.id, snapshot.data() as AssessmentAttempt));
       if (configs) configs.forEach(snapshot => this.assessmentConfigs.set(snapshot.id, snapshot.data() as AssessmentConfig));
+      if (questions) questions.forEach(snapshot => this.questions.set(snapshot.id, snapshot.data() as Question));
       if (notifs) {
         notifs.forEach(snapshot => {
           const item = snapshot.data() as AppNotification;
@@ -191,6 +227,10 @@ class InMemoryDB {
       isServerless: IS_SERVERLESS,
       dataFile: DATA_FILE,
       isFirestoreActive: Boolean(firestore),
+      isPersistent: Boolean(firestore) && this.firestoreLoadErrors.length === 0 && !this.lastFirestoreWriteError,
+      pendingFirestoreWrites: this.pendingFirestoreWrites.size,
+      lastFirestoreWriteError: this.lastFirestoreWriteError,
+      firestoreLoadErrors: this.firestoreLoadErrors,
       counts: {
         users: this.users.size,
         skills: this.skills.size,
@@ -353,6 +393,7 @@ class InMemoryDB {
 
   addQuestion(question: Question): Question {
     this.questions.set(question.id, question);
+    this.persistToFirestore('questions', question.id, question);
     return question;
   }
 
@@ -361,6 +402,7 @@ class InMemoryDB {
     if (!existing) return null;
     const updated = { ...existing, ...updates };
     this.questions.set(id, updated);
+    this.persistToFirestore('questions', id, updated);
     return updated;
   }
 
@@ -368,6 +410,7 @@ class InMemoryDB {
     const existing = this.questions.get(id);
     if (!existing) return false;
     existing.isFlagged = flagged;
+    this.persistToFirestore('questions', id, existing);
     return true;
   }
 
@@ -1848,6 +1891,7 @@ class InMemoryDB {
     if (target) {
       target.read = true;
       this.persist();
+      this.persistToFirestore('notifications', target.id, target);
       return true;
     }
     return false;
@@ -1855,7 +1899,10 @@ class InMemoryDB {
 
   markAllNotificationsRead(userId: string): boolean {
     const list = this.notifications.get(userId) || [];
-    list.forEach(n => { n.read = true; });
+    list.forEach(n => {
+      n.read = true;
+      this.persistToFirestore('notifications', n.id, n);
+    });
     this.persist();
     return true;
   }

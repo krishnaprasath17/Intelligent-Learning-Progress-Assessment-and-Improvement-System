@@ -163,12 +163,17 @@ apiRouter.use(requireAuthenticatedUser);
 apiRouter.get(['/health', '/healthz'], (_req: Request, res: Response) => {
   const storageInfo = (db as any).getStorageDiagnostic?.() || {};
   const firestoreInfo = getFirestoreDiagnostic();
+  const isPersistent = Boolean(storageInfo.isPersistent);
   res.status(200).json({
-    status: 'ok',
+    status: storageInfo.isServerless && !isPersistent ? 'degraded' : 'ok',
     timestamp: new Date().toISOString(),
     environment: process.env.VERCEL ? 'vercel-serverless' : 'node',
     storage: storageInfo,
     firestore: firestoreInfo,
+    persistenceHealth: {
+      isPersistent,
+      mode: isPersistent ? 'firebase_firestore_cloud' : 'ephemeral_local_cache',
+    },
   });
 });
 
@@ -176,15 +181,16 @@ apiRouter.get(['/health', '/healthz'], (_req: Request, res: Response) => {
 apiRouter.get('/system/db-status', (_req: Request, res: Response) => {
   const storageInfo = (db as any).getStorageDiagnostic?.() || {};
   const firestoreInfo = getFirestoreDiagnostic();
+  const isPersistent = Boolean(storageInfo.isPersistent);
   res.status(200).json({
-    status: 'ok',
+    status: storageInfo.isServerless && !isPersistent ? 'degraded' : 'ok',
     environment: process.env.VERCEL ? 'vercel-serverless' : 'node',
     storage: storageInfo,
     firestore: firestoreInfo,
     persistenceHealth: {
-      isPersistent: firestoreInfo.isAvailable,
-      mode: firestoreInfo.isAvailable ? 'firebase_firestore_cloud' : 'ephemeral_local_cache',
-      recommendation: firestoreInfo.isAvailable
+      isPersistent,
+      mode: isPersistent ? 'firebase_firestore_cloud' : 'ephemeral_local_cache',
+      recommendation: isPersistent
         ? 'Database is fully connected to Cloud Firestore. Changes are permanently persisted.'
         : 'Running in ephemeral serverless cache mode. To enable permanent database persistence across Vercel deployments, configure FIREBASE_SERVICE_ACCOUNT_JSON in Vercel project environment variables.',
     },

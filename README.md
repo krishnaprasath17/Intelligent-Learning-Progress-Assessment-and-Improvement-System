@@ -103,10 +103,12 @@ Open [http://localhost:3000](http://localhost:3000).
    - `GEMINI_API_KEY`
    - `FIREBASE_PROJECT_ID`
    - `FIRESTORE_DATABASE_ID`
-   - `FIREBASE_SERVICE_ACCOUNT_JSON` — the complete service-account JSON as a single environment-variable value, using a newly created key.
+   - `FIREBASE_SERVICE_ACCOUNT_JSON` — required for persistent Vercel database storage; paste the complete service-account JSON as one environment-variable value, using a newly created key.
    - `INITIAL_ADMIN_EMAIL` — optional; the email address to bootstrap as the first administrator.
 4. Deploy the project and add the Vercel domain to Firebase Authentication's authorized domains.
-5. Verify `/api/health`, then sign in with an approved administrator account and confirm the admin dashboard loads its data.
+5. Verify `/api/system/db-status` reports `persistenceHealth.isPersistent: true`, then sign in with an approved administrator account and confirm the admin dashboard loads its data.
+
+Without `FIREBASE_SERVICE_ACCOUNT_JSON` (or the equivalent Admin SDK credentials), Vercel uses temporary serverless storage and changes can be lost when an instance is recycled. Existing data that was only stored in that temporary cache cannot be recovered after it disappears.
 
 Never put server credentials in `VITE_*` variables, browser code, commits, screenshots, or issue reports. If a credential has been exposed, revoke it and create a replacement before deployment.
 

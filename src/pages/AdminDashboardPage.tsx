@@ -47,6 +47,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [attemptsList, setAttemptsList] = useState<AssessmentAttempt[]>([]);
   const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
   const [accessList, setAccessList] = useState<AccessControlEntry[]>([]);
+  const [databaseStatus, setDatabaseStatus] = useState<Awaited<ReturnType<typeof api.getDatabaseStatus>> | null>(null);
 
   // Email Approval Form State
   const [newEmail, setNewEmail] = useState('');
@@ -112,6 +113,10 @@ export const AdminDashboardPage: React.FC = () => {
   const [userModalFeedback, setUserModalFeedback] = useState<string | null>(null);
 
   const loadData = async () => {
+    void api.getDatabaseStatus()
+      .then(setDatabaseStatus)
+      .catch((error) => console.error('Error loading database persistence status:', error));
+
     try {
       const [sRes, uRes, qRes, aRes, attRes, logRes, accRes] = await Promise.all([
         api.getAdminStats(),
@@ -458,6 +463,44 @@ export const AdminDashboardPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {databaseStatus && (
+        !databaseStatus.persistenceHealth.isPersistent ||
+        databaseStatus.storage.firestoreLoadErrors.length > 0 ||
+        Boolean(databaseStatus.storage.lastFirestoreWriteError)
+      ) && (
+        <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+            <div className="space-y-2">
+              <h2 className="text-sm font-bold">Database changes may not survive a refresh</h2>
+              <p className="text-sm">{databaseStatus.persistenceHealth.recommendation}</p>
+              {databaseStatus.storage.firestoreLoadErrors.length > 0 && (
+                <p className="text-xs">
+                  Firestore could not load: {databaseStatus.storage.firestoreLoadErrors.join('; ')}
+                </p>
+              )}
+              {databaseStatus.storage.lastFirestoreWriteError && (
+                <p className="text-xs">
+                  Most recent Firestore write error: {databaseStatus.storage.lastFirestoreWriteError}
+                </p>
+              )}
+              <p className="text-xs">
+                Add <code className="font-bold">FIREBASE_SERVICE_ACCOUNT_JSON</code> in Vercel’s production
+                environment variables, then redeploy. Keep the service-account key private.
+              </p>
+              <a
+                href="https://vercel.com/knights19/intelligent-learning-progress-assessment-and-improvement-system-9d7z/settings/environment-variables"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex text-xs font-bold text-amber-900 underline"
+              >
+                Open Vercel environment variables
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex flex-wrap rounded-xl bg-slate-200/80 p-1 max-w-4xl gap-1">
