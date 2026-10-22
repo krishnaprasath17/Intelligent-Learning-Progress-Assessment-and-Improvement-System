@@ -53,6 +53,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [newRole, setNewRole] = useState<'user' | 'admin'>('user');
   const [newNotes, setNewNotes] = useState('');
   const [accessActionFeedback, setAccessActionFeedback] = useState<string | null>(null);
+  const [showAccessApprovalModal, setShowAccessApprovalModal] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'analytics' | 'access-control' | 'assessments' | 'questions' | 'submissions' | 'audit-logs' | 'ai-generator' | 'users'>('access-control');
   const [selectedSkillFilter, setSelectedSkillFilter] = useState<string>('All');
@@ -146,6 +147,7 @@ export const AdminDashboardPage: React.FC = () => {
       setAccessActionFeedback(`Successfully approved ${newEmail.trim()} as ${newRole.toUpperCase()}`);
       setNewEmail('');
       setNewNotes('');
+      setShowAccessApprovalModal(false);
       await loadData();
     } catch (err: any) {
       setAccessActionFeedback(`Error: ${err.message}`);
@@ -410,6 +412,18 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            id="open-approval-email-modal-btn"
+            type="button"
+            onClick={() => {
+              setAccessActionFeedback(null);
+              setShowAccessApprovalModal(true);
+            }}
+            className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold shadow-md flex items-center space-x-1.5 transition-colors"
+          >
+            <Mail className="w-4 h-4" />
+            <span>Approve Email ID</span>
+          </button>
           <button
             onClick={() => {
               setEditingConfigId(null);
@@ -1502,6 +1516,110 @@ export const AdminDashboardPage: React.FC = () => {
                   className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xs"
                 >
                   {editingUserId ? 'Save Changes' : 'Enroll & Whitelist'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* APPROVE EMAIL ID MODAL */}
+      {showAccessApprovalModal && (
+        <div className="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="approve-email-modal-title"
+            className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 id="approve-email-modal-title" className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-emerald-600" />
+                  Approve Email ID
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Add an approved email address and grant access to the learning portal.
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close approval dialog"
+                onClick={() => setShowAccessApprovalModal(false)}
+                className="text-slate-400 hover:text-slate-700 text-2xl leading-none"
+              >
+                &times;
+              </button>
+            </div>
+
+            {accessActionFeedback?.startsWith('Error') && (
+              <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
+                {accessActionFeedback}
+              </div>
+            )}
+
+            <form onSubmit={handleApproveEmailSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="approval-modal-email-input" className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Gmail ID / Institutional Email Address *
+                </label>
+                <input
+                  id="approval-modal-email-input"
+                  type="email"
+                  required
+                  autoFocus
+                  value={newEmail}
+                  onChange={e => setNewEmail(e.target.value)}
+                  placeholder="student@example.com"
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="approval-modal-role-select" className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Access Role
+                  </label>
+                  <select
+                    id="approval-modal-role-select"
+                    value={newRole}
+                    onChange={e => setNewRole(e.target.value as 'user' | 'admin')}
+                    className="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white text-sm"
+                  >
+                    <option value="user">Student</option>
+                    <option value="admin">Administrator</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="approval-modal-notes-input" className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Notes (optional)
+                  </label>
+                  <input
+                    id="approval-modal-notes-input"
+                    type="text"
+                    value={newNotes}
+                    onChange={e => setNewNotes(e.target.value)}
+                    placeholder="Department / year"
+                    className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowAccessApprovalModal(false)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  id="submit-approval-modal-btn"
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-2"
+                >
+                  <UserCheck className="w-4 h-4" />
+                  Approve Email
                 </button>
               </div>
             </form>
