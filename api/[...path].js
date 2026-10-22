@@ -6236,11 +6236,11 @@ apiRouter.get("/progress", (req, res) => {
     res.status(401).json({ error: error.message || "Unauthorized" });
   }
 });
-apiRouter.get("/admin/stats", (req, res) => {
+apiRouter.get("/admin/stats", requireAdmin, (req, res) => {
   const stats = db.getAdminStats();
   res.json(stats);
 });
-apiRouter.get("/admin/users", (_req, res) => {
+apiRouter.get("/admin/users", requireAdmin, (_req, res) => {
   const users = db.getAllUsers();
   res.json({ users });
 });
@@ -6365,12 +6365,12 @@ apiRouter.post("/admin/users/:id/approve-email", requireAdmin, async (req, res) 
     res.status(400).json({ error: err.message || "Failed to approve email" });
   }
 });
-apiRouter.get("/admin/questions", (req, res) => {
+apiRouter.get("/admin/questions", requireAdmin, (req, res) => {
   const skillId = req.query.skillId;
   const questions = db.getQuestions({ skillId });
   res.json({ questions });
 });
-apiRouter.post("/admin/questions", (req, res) => {
+apiRouter.post("/admin/questions", requireAdmin, (req, res) => {
   const question = req.body;
   if (!question.question || !question.skillId) {
     return res.status(400).json({ error: "Missing question details" });
@@ -6381,12 +6381,12 @@ apiRouter.post("/admin/questions", (req, res) => {
   });
   res.json({ success: true, question: created });
 });
-apiRouter.put("/admin/questions/:id", (req, res) => {
+apiRouter.put("/admin/questions/:id", requireAdmin, (req, res) => {
   const updated = db.updateQuestion(req.params.id, req.body);
   if (!updated) return res.status(404).json({ error: "Question not found" });
   res.json({ success: true, question: updated });
 });
-apiRouter.post("/admin/questions/:id/flag", (req, res) => {
+apiRouter.post("/admin/questions/:id/flag", requireAdmin, (req, res) => {
   const flagged = req.body.flagged ?? true;
   const success = db.toggleFlagQuestion(req.params.id, flagged);
   res.json({ success });
@@ -6830,6 +6830,17 @@ apiRouter.delete("/admin/access-control/:email", requireAdmin, async (req, res) 
 // server/vercelServer.ts
 var app = express();
 app.use(express.json());
+app.use((req, _res, next) => {
+  const requestUrl = new URL(req.url, "http://localhost");
+  const apiPath = requestUrl.searchParams.get("__vercel_path");
+  if (apiPath !== null) {
+    requestUrl.searchParams.delete("__vercel_path");
+    const query = requestUrl.searchParams.toString();
+    req.url = `/${apiPath.replace(/^\/+/, "")}${query ? `?${query}` : ""}`;
+    req.originalUrl = req.url;
+  }
+  next();
+});
 app.get(["/health", "/healthz", "/api/health", "/api/healthz"], (_req, res) => {
   res.status(200).json({
     status: "ok",

@@ -4,6 +4,22 @@ import { apiRouter } from './apiRouter';
 const app = express();
 app.use(express.json());
 
+// Vercel's dynamic function route only matches one segment, so deep API paths
+// are rewritten to /api/index with their original path in this query parameter.
+app.use((req: Request, _res: Response, next) => {
+  const requestUrl = new URL(req.url, 'http://localhost');
+  const apiPath = requestUrl.searchParams.get('__vercel_path');
+
+  if (apiPath !== null) {
+    requestUrl.searchParams.delete('__vercel_path');
+    const query = requestUrl.searchParams.toString();
+    req.url = `/${apiPath.replace(/^\/+/, '')}${query ? `?${query}` : ''}`;
+    req.originalUrl = req.url;
+  }
+
+  next();
+});
+
 // Health check endpoints
 app.get(['/health', '/healthz', '/api/health', '/api/healthz'], (_req: Request, res: Response) => {
   res.status(200).json({

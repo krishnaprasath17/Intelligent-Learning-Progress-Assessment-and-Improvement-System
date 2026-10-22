@@ -904,12 +904,12 @@ apiRouter.get('/progress', (req: Request & { user?: any }, res: Response) => {
 });
 
 // --- ADMIN DASHBOARD ---
-apiRouter.get('/admin/stats', (req: Request, res: Response) => {
+apiRouter.get('/admin/stats', requireAdmin, (req: Request, res: Response) => {
   const stats = db.getAdminStats();
   res.json(stats);
 });
 
-apiRouter.get('/admin/users', (_req: Request, res: Response) => {
+apiRouter.get('/admin/users', requireAdmin, (_req: Request, res: Response) => {
   const users = db.getAllUsers();
   res.json({ users });
 });
@@ -1057,13 +1057,13 @@ apiRouter.post('/admin/users/:id/approve-email', requireAdmin, async (req: Reque
   }
 });
 
-apiRouter.get('/admin/questions', (req: Request, res: Response) => {
+apiRouter.get('/admin/questions', requireAdmin, (req: Request, res: Response) => {
   const skillId = req.query.skillId as string | undefined;
   const questions = db.getQuestions({ skillId });
   res.json({ questions });
 });
 
-apiRouter.post('/admin/questions', (req: Request, res: Response) => {
+apiRouter.post('/admin/questions', requireAdmin, (req: Request, res: Response) => {
   const question = req.body;
   if (!question.question || !question.skillId) {
     return res.status(400).json({ error: 'Missing question details' });
@@ -1075,13 +1075,13 @@ apiRouter.post('/admin/questions', (req: Request, res: Response) => {
   res.json({ success: true, question: created });
 });
 
-apiRouter.put('/admin/questions/:id', (req: Request, res: Response) => {
+apiRouter.put('/admin/questions/:id', requireAdmin, (req: Request, res: Response) => {
   const updated = db.updateQuestion(req.params.id, req.body);
   if (!updated) return res.status(404).json({ error: 'Question not found' });
   res.json({ success: true, question: updated });
 });
 
-apiRouter.post('/admin/questions/:id/flag', (req: Request, res: Response) => {
+apiRouter.post('/admin/questions/:id/flag', requireAdmin, (req: Request, res: Response) => {
   const flagged = req.body.flagged ?? true;
   const success = db.toggleFlagQuestion(req.params.id, flagged);
   res.json({ success });
