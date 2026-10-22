@@ -12,7 +12,5 @@ data/access-control.json
 service-account.json
 .vercel
 .aistudio/
-/api/index.js
-/api/[...path].js
 /server.js
 
