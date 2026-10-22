@@ -121,7 +121,7 @@ Never put server credentials in `VITE_*` variables, browser code, commits, scree
 ## Repository layout
 
 ```text
-api/       Vercel serverless API entry point
+api/       Vercel API function entry points
 server/    API routes, Firebase Admin, and Gemini services
 src/       React app, pages, components, and Firebase client
 assets/    README artwork
